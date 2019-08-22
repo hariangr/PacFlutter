@@ -38,8 +38,8 @@ class _MyHomePageState extends State<MyHomePage> {
   CameraController controller;
   List<CameraDescription> cameras;
   int curCamera = 0;
-  bool isConnected = true;
-  bool pingOk = true;
+  bool isConnected;
+  bool pingOk;
   Directory appDir;
 
   @override
@@ -52,6 +52,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void initWebsocket() {
     channel = IOWebSocketChannel.connect("ws://192.168.1.4:3000");
+    pingOk = true;
+    isConnected = true;
     schedulePing();
     channel.stream.listen((data) {
       switch (data) {
@@ -76,7 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
       print('X ping run');
       channel.sink.add(json.encode({"event": "ping", "data": "null"}));
 
-      Future.delayed(Duration(milliseconds: 2000), () {
+      Future.delayed(Duration(milliseconds: 500), () {
         print('X cek ping');
 
         if (pingOk == false) {
@@ -85,7 +87,7 @@ class _MyHomePageState extends State<MyHomePage> {
           });
         }
 
-        print('ping is ' + isConnected.toString());        
+        print('ping is ' + isConnected.toString());
 
         if (isConnected) {
           print('X is connect');
