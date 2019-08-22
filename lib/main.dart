@@ -188,6 +188,13 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(isConnected ? 'Connected' : 'Disconnected'),
         actions: <Widget>[
           IconButton(
+            icon: Icon(Icons.switch_camera),
+            onPressed: () {
+              curCamera = curCamera + 1;
+              loadCameraController();
+            },
+          ),
+          IconButton(
             icon: Icon(isConnected ? Icons.not_interested : Icons.check),
             onPressed: () {
               if (isConnected) {
