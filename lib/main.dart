@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:web_socket_channel/io.dart';
 import 'dart:convert';
 import 'package:web_socket_channel/status.dart' as status;
-import 'dart:math';
 
 void main() => runApp(MyApp());
 
@@ -137,19 +136,26 @@ class _MyHomePageState extends State<MyHomePage> {
     String date = DateTime.now().millisecondsSinceEpoch.toString();
     String tempDir = (await getTemporaryDirectory()).path;
 
-    var path = '$tempDir/$date.jpg';
-    await controller.takePicture(path);
-    File f = File(path);
-    String encoded = base64Encode(f.readAsBytesSync());
+    try {
+      var path = '$tempDir/$date.jpg';
+      await controller.takePicture(path);
+      File f = File(path);
+      String encoded = base64Encode(f.readAsBytesSync());
 
-    String fileName = Random.secure().nextInt(20).toString();
-    channel.sink.add(json.encode({
-      "event": "save",
-      "data": {
-        "filename": 'file$fileName',
-        "encoded": encoded,
-      }
-    }));
+      String fileName = pacameraProvider.deviceName;
+      channel.sink.add(json.encode({
+        "event": "save",
+        "data": {
+          "filename": '$fileName',
+          "encoded": encoded,
+        }
+      }));
+    } catch (e) {
+      print(e);
+      showDialog(context: context, builder: (_) => Text('Something is wrong'));
+      loadCameras();
+      loadCameraController();
+    }
   }
 
   Future<void> loadCameras() async {
@@ -161,7 +167,8 @@ class _MyHomePageState extends State<MyHomePage> {
     // Untuk pilih kamera
     var camIndex = curCamera % cameras.length;
 
-    controller = CameraController(cameras[camIndex], ResolutionPreset.ultraHigh);
+    controller =
+        CameraController(cameras[camIndex], ResolutionPreset.ultraHigh);
     controller.initialize().then((_) {
       if (!mounted) {
         return;
@@ -210,10 +217,13 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           IconButton(
             icon: Icon(Icons.settings),
-            onPressed: () {
-              showDialog(
-                  context: context, builder: (context) => SettingDialog());
-            },
+            onPressed: isConnected
+                ? null
+                : () {
+                    showDialog(
+                        context: context,
+                        builder: (context) => SettingDialog());
+                  },
           )
         ],
       ),
@@ -234,29 +244,38 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-class SettingDialog extends StatelessWidget {
-  final TextEditingController ipController =
-      new TextEditingController(text: '192.168.1.1:3000');
-  final TextEditingController deviceLabelController =
-      new TextEditingController(text: 'Cam1');
+class SettingDialog extends StatefulWidget {
+  @override
+  _SettingDialogState createState() => _SettingDialogState();
+}
+
+class _SettingDialogState extends State<SettingDialog> {
+  String ipServ;
+  String deviceName;
+  var formKey = GlobalKey<FormState>();
 
   @override
   Widget build(BuildContext context) {
+    final pacaProvider = Provider.of<PacameraProvider>(context);
+
     return Dialog(
       child: Padding(
         padding: EdgeInsets.all(16),
         child: Form(
+          key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              TextField(
+              TextFormField(
                 decoration:
                     InputDecoration(labelText: 'IP Address Pacamera Server'),
-                controller: ipController,
+                initialValue: pacaProvider.ipAddressServer,
+                onSaved: (s) => ipServ = s,
               ),
-              TextField(
+              TextFormField(
                 decoration: InputDecoration(labelText: 'Name for this camera'),
-                controller: deviceLabelController,
+                initialValue: pacaProvider.deviceName,
+                onSaved: (s) => deviceName = s,
               ),
               ButtonBar(
                 children: <Widget>[
@@ -267,8 +286,16 @@ class SettingDialog extends StatelessWidget {
                     },
                   ),
                   RaisedButton(
+                    color: Colors.blue,
                     child: Text('OK'),
-                    onPressed: () {},
+                    onPressed: () {
+                      formKey.currentState.save();
+
+                      pacaProvider.setIpAddressServer(ipServ);
+                      pacaProvider.setDeviceName(deviceName);
+
+                      Navigator.pop(context);
+                    },
                   ),
                 ],
               )
