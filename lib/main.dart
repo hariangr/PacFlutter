@@ -34,25 +34,64 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
   IOWebSocketChannel channel;
   CameraController controller;
   List<CameraDescription> cameras;
   int curCamera = 0;
+  bool isConnected = true;
+  bool pingOk = true;
   Directory appDir;
 
   @override
   void initState() {
     super.initState();
 
-    channel = IOWebSocketChannel.connect("ws://192.168.1.6:3000");
     loadCameras();
-    // channel = IOWebSocketChannel.connect("ws://demos.kaazing.com/echo");
+    initWebsocket();
+  }
+
+  void initWebsocket() {
+    channel = IOWebSocketChannel.connect("ws://192.168.1.4:3000");
+    schedulePing();
     channel.stream.listen((data) {
-      if (data == "cheese") {
-        print('suuus');
-        onShutterPressed();
+      switch (data) {
+        case "cheese":
+          onShutterPressed();
+          break;
+        case "ping":
+          pingOk = true;
+          isConnected = true;
+          print('X yeap trues');
+          break;
+        default:
+          print(data);
       }
+    });
+  }
+
+  void schedulePing() {
+    print('schedulePing');
+    pingOk = false;
+    Future.delayed(Duration(milliseconds: 1000), () {
+      print('X ping run');
+      channel.sink.add(json.encode({"event": "ping", "data": "null"}));
+
+      Future.delayed(Duration(milliseconds: 2000), () {
+        print('X cek ping');
+
+        if (pingOk == false) {
+          setState(() {
+            isConnected = false;
+          });
+        }
+
+        print('ping is ' + isConnected.toString());        
+
+        if (isConnected) {
+          print('X is connect');
+          schedulePing();
+        }
+      });
     });
   }
 
@@ -68,12 +107,13 @@ class _MyHomePageState extends State<MyHomePage> {
     String encoded = base64Encode(f.readAsBytesSync());
 
     String fileName = Random.secure().nextInt(20).toString();
-    channel.sink.add(json.encode({"event": "save", "data": {
-      "filename": 'file$fileName',
-      "encoded": encoded,
-    }}));
-
-    print(path);
+    channel.sink.add(json.encode({
+      "event": "save",
+      "data": {
+        "filename": 'file$fileName',
+        "encoded": encoded,
+      }
+    }));
   }
 
   Future<void> loadCameras() async {
@@ -96,44 +136,88 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    buildCamPreview() {
+      if (controller == null || controller.value == null) {
+        return Container(child: Center(child: CircularProgressIndicator()));
+      }
+
+      return AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: CameraPreview(controller),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(isConnected ? 'Connected' : 'Disconnected'),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              showDialog(
+                  context: context, builder: (context) => SettingDialog());
+            },
+          )
+        ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            AspectRatio(
-                aspectRatio: controller.value.aspectRatio,
-                child: CameraPreview(controller)),
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.display1,
-            ),
-            StreamBuilder(
-              stream: channel.stream,
-              initialData: "Empty",
-              builder: (context, snap) {
-                return Text(snap.data);
-              },
-            )
-          ],
-        ),
-      ),
+      body: Center(child: buildCamPreview()),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          channel.sink.add(json
-              .encode({"event": "new", "data": DateTime.now().toString()}));
+          channel.sink.add(
+              json.encode({"event": "new", "data": DateTime.now().toString()}));
 
           channel.sink.add(json
               .encode({"event": "cheese", "data": DateTime.now().toString()}));
         },
         tooltip: 'Increment',
-        child: Icon(Icons.add),
+        child: Icon(Icons.camera),
+      ),
+    );
+  }
+}
+
+class SettingDialog extends StatelessWidget {
+  final TextEditingController ipController =
+      new TextEditingController(text: '192.168.1.1:3000');
+  final TextEditingController deviceLabelController =
+      new TextEditingController(text: 'Cam1');
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Form(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(
+                decoration:
+                    InputDecoration(labelText: 'IP Address Pacamera Server'),
+                controller: ipController,
+              ),
+              TextField(
+                decoration: InputDecoration(labelText: 'Name for this camera'),
+                controller: deviceLabelController,
+              ),
+              ButtonBar(
+                children: <Widget>[
+                  RaisedButton(
+                    child: Text('Batal'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                  ),
+                  RaisedButton(
+                    child: Text('OK'),
+                    onPressed: () {},
+                  )
+                ],
+              )
+            ],
+          ),
+        ),
       ),
     );
   }
