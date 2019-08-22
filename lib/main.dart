@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:panflutter/models/paca_protocol.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:web_socket_channel/io.dart';
 import 'dart:convert';
 import 'package:web_socket_channel/status.dart' as status;
@@ -11,15 +13,35 @@ import 'dart:math';
 
 void main() => runApp(MyApp());
 
+class PacameraProvider extends ChangeNotifier {
+  String _ipAddressServer = "ws://192.168.1.4:3000";
+  String _deviceName = "cam1";
+
+  String get ipAddressServer => _ipAddressServer;
+  void setIpAddressServer(String ip) {
+    _ipAddressServer = ip;
+    notifyListeners();
+  }
+
+  String get deviceName => _deviceName;
+  void setDeviceName(String name) {
+    _deviceName = name;
+    notifyListeners();
+  }
+}
+
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+    return MultiProvider(
+      providers: [ChangeNotifierProvider(builder: (_) => PacameraProvider())],
+      child: MaterialApp(
+        title: 'Pacamera',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+        ),
+        home: MyHomePage(title: 'Flutter Demo Home Page'),
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
@@ -41,29 +63,41 @@ class _MyHomePageState extends State<MyHomePage> {
   bool isConnected;
   bool pingOk;
   Directory appDir;
+  PacameraProvider pacameraProvider;
 
   @override
   void initState() {
     super.initState();
 
     loadCameras();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    pacameraProvider = Provider.of<PacameraProvider>(context);
     initWebsocket();
   }
 
   void initWebsocket() {
-    channel = IOWebSocketChannel.connect("ws://192.168.1.4:3000");
+    channel = IOWebSocketChannel.connect(pacameraProvider.ipAddressServer);
     pingOk = true;
     isConnected = true;
     schedulePing();
     channel.stream.listen((data) {
-      switch (data) {
+      print(data);
+      var res = PacaProtocolModel.fromJson(json.decode(data));
+
+      switch (res.event) {
         case "cheese":
           onShutterPressed();
           break;
         case "ping":
-          pingOk = true;
-          isConnected = true;
-          print('X yeap trues');
+          setState(() {
+            pingOk = true;
+            isConnected = true;
+            print('X yeap trues');
+          });
           break;
         default:
           print(data);
@@ -154,6 +188,20 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(isConnected ? 'Connected' : 'Disconnected'),
         actions: <Widget>[
           IconButton(
+            icon: Icon(isConnected ? Icons.not_interested : Icons.check),
+            onPressed: () {
+              if (isConnected) {
+                channel.sink.close();
+                setState(() {
+                  pingOk = false;
+                  isConnected = false;
+                });
+              } else {
+                initWebsocket();
+              }
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.settings),
             onPressed: () {
               showDialog(
@@ -214,7 +262,7 @@ class SettingDialog extends StatelessWidget {
                   RaisedButton(
                     child: Text('OK'),
                     onPressed: () {},
-                  )
+                  ),
                 ],
               )
             ],
