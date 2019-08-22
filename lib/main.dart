@@ -161,7 +161,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // Untuk pilih kamera
     var camIndex = curCamera % cameras.length;
 
-    controller = CameraController(cameras[camIndex], ResolutionPreset.low);
+    controller = CameraController(cameras[camIndex], ResolutionPreset.ultraHigh);
     controller.initialize().then((_) {
       if (!mounted) {
         return;
