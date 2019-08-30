@@ -67,7 +67,6 @@ class _CameraPageState extends State<CameraPage> {
     channel = IOWebSocketChannel.connect(pacameraProvider.ipAddressServer);
     pingOk = true;
     isConnected = true;
-    schedulePing();
     channel.stream.listen((data) {
       print(data);
       var res = PacaProtocolModel.fromJson(json.decode(data));
@@ -87,16 +86,16 @@ class _CameraPageState extends State<CameraPage> {
           print(data);
       }
     });
+    schedulePing();
   }
 
   void schedulePing() {
-    pingOk = false;
-
     pingTimer = new Timer.periodic(Duration(seconds: 1), (s) {
+      pingOk = false;
       channel.sink.add(json.encode({"event": "ping", "data": "null"}));
 
       Future.delayed(Duration(milliseconds: 500), () {
-        print('X cek ping');
+        print('X cek ping $isConnected');
 
         if (pingOk == false) {
           setState(() {
@@ -235,7 +234,7 @@ class _CameraPageState extends State<CameraPage> {
         child: Icon(Icons.camera),
         iconSize: 50,
         foregroundColor: Theme.of(context).primaryColor.withOpacity(0.70),
-        onTap: countdownLeft == null
+        onTap: isConnected == true && countdownLeft == null
             ? () {
                 channel.sink.add(json.encode(
                     {"event": "new", "data": DateTime.now().toString()}));
@@ -336,7 +335,10 @@ class _CameraPageState extends State<CameraPage> {
         child: Center(
           child: shadowButtonControl(
             Text(countdownLeft == null ? '' : countdownLeft.toString(),
-                style: Theme.of(context).textTheme.display4),
+                style: Theme.of(context)
+                    .textTheme
+                    .display4
+                    .copyWith(color: Colors.white)),
           ),
         ),
       );
