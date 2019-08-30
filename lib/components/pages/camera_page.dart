@@ -21,15 +21,18 @@ class CameraPage extends StatefulWidget {
 
 class _CameraPageState extends State<CameraPage> {
   IOWebSocketChannel channel;
+  PacameraProvider pacameraProvider;
+
   CameraController controller;
   List<CameraDescription> cameras;
   int curCamera = 0;
-  bool isConnected;
-  int timerLength = 3;
-  bool pingOk;
   Directory appDir;
-  PacameraProvider pacameraProvider;
 
+  bool pingOk;
+  bool isConnected;
+  Timer pingTimer;
+
+  int timerLength = 3;
   Timer countdownTimer;
   int countdownLeft;
 
@@ -60,39 +63,36 @@ class _CameraPageState extends State<CameraPage> {
     });
   }
 
-  void onWebsocketData(data) {
-    print(data);
-    var res = PacaProtocolModel.fromJson(json.decode(data));
-
-    switch (res.event) {
-      case "cheese":
-        capturePicture();
-        break;
-      case "ping":
-        setState(() {
-          pingOk = true;
-          isConnected = true;
-          print('X yeap trues');
-        });
-        break;
-      default:
-        print(data);
-    }
-  }
-
   void initWebsocket() {
     channel = IOWebSocketChannel.connect(pacameraProvider.ipAddressServer);
     pingOk = true;
     isConnected = true;
     schedulePing();
-    channel.stream.listen(onWebsocketData);
+    channel.stream.listen((data) {
+      print(data);
+      var res = PacaProtocolModel.fromJson(json.decode(data));
+
+      switch (res.event) {
+        case "cheese":
+          capturePicture();
+          break;
+        case "ping":
+          setState(() {
+            pingOk = true;
+            isConnected = true;
+            print('X yeap trues');
+          });
+          break;
+        default:
+          print(data);
+      }
+    });
   }
 
   void schedulePing() {
-    print('schedulePing');
     pingOk = false;
-    Future.delayed(Duration(milliseconds: 1000), () {
-      print('X ping run');
+
+    pingTimer = new Timer.periodic(Duration(seconds: 1), (s) {
       channel.sink.add(json.encode({"event": "ping", "data": "null"}));
 
       Future.delayed(Duration(milliseconds: 500), () {
@@ -101,14 +101,8 @@ class _CameraPageState extends State<CameraPage> {
         if (pingOk == false) {
           setState(() {
             isConnected = false;
+            pingTimer.cancel();
           });
-        }
-
-        print('ping is ' + isConnected.toString());
-
-        if (isConnected) {
-          print('X is connect');
-          schedulePing();
         }
       });
     });
