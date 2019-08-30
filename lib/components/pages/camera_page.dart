@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:camera/camera.dart';
@@ -10,6 +12,8 @@ import 'package:web_socket_channel/io.dart';
 import 'dart:convert';
 // import 'package:web_socket_channel/status.dart' as status;
 
+List<int> timerSecondOptions = [10, 5, 3, 1];
+
 class CameraPage extends StatefulWidget {
   @override
   _CameraPageState createState() => _CameraPageState();
@@ -21,9 +25,13 @@ class _CameraPageState extends State<CameraPage> {
   List<CameraDescription> cameras;
   int curCamera = 0;
   bool isConnected;
+  int timerLength = 3;
   bool pingOk;
   Directory appDir;
   PacameraProvider pacameraProvider;
+
+  Timer countdownTimer;
+  int countdownLeft;
 
   @override
   void didChangeDependencies() async {
@@ -33,6 +41,23 @@ class _CameraPageState extends State<CameraPage> {
     await loadCameras();
     loadCameraController();
     initWebsocket();
+  }
+
+  void startCountdown() {
+    countdownLeft = timerLength;
+
+    countdownTimer = new Timer.periodic(Duration(seconds: 1), (t) {
+      setState(() {
+        if (countdownLeft == 0 || countdownLeft < 0) {
+          countdownLeft = null;
+          countdownTimer.cancel();
+          channel.sink.add(json
+              .encode({"event": "cheese", "data": DateTime.now().toString()}));
+        } else {
+          countdownLeft = countdownLeft - 1;
+        }
+      });
+    });
   }
 
   void onWebsocketData(data) {
@@ -153,18 +178,20 @@ class _CameraPageState extends State<CameraPage> {
       Widget child,
       double iconSize: 30,
       Color foregroundColor: Colors.transparent,
+      bool useIconButton: true,
       Function() onTap,
     }) {
       return ClipOval(
         child: Material(
           color: foregroundColor,
-          child: IconButton(
-            icon: child,
-            splashColor: Colors.blue,
-            color: Colors.white,
-            iconSize: iconSize,
-            onPressed: onTap,
-          ),
+          child: useIconButton
+              ? IconButton(
+                  icon: child,
+                  color: Colors.white,
+                  iconSize: iconSize,
+                  onPressed: onTap,
+                )
+              : child,
         ),
       );
     }
@@ -217,17 +244,24 @@ class _CameraPageState extends State<CameraPage> {
         onTap: () {
           channel.sink.add(
               json.encode({"event": "new", "data": DateTime.now().toString()}));
-
-          channel.sink.add(json
-              .encode({"event": "cheese", "data": DateTime.now().toString()}));
+          startCountdown();
         },
       );
     }
 
     Widget buildTimer() {
       return buildControl(
-        child: Icon(Icons.timer),
-        onTap: () {},
+        child: PopupMenuButton<int>(
+          icon: Icon(Icons.timer, color: Colors.white),
+          initialValue: timerLength,
+          onSelected: (i) => timerLength = i,
+          itemBuilder: (ctx) {
+            return timerSecondOptions
+                .map((f) => PopupMenuItem(value: f, child: Text('$f seconds')))
+                .toList();
+          },
+        ),
+        useIconButton: false,
       );
     }
 
@@ -237,7 +271,7 @@ class _CameraPageState extends State<CameraPage> {
         decoration:
             BoxDecoration(borderRadius: BorderRadius.circular(50), boxShadow: [
           BoxShadow(
-            color: Colors.black38,
+            color: Colors.black26,
             blurRadius: 25,
             spreadRadius: 10,
           )
@@ -252,54 +286,73 @@ class _CameraPageState extends State<CameraPage> {
       );
     }
 
+    Widget buildUI() {
+      return Positioned.fill(
+        top: 0,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: <Widget>[
+                    shadowButtonControl(buildConnectButton()),
+                    Text(
+                      isConnected
+                          ? 'CAM ${pacameraProvider.deviceName} (${timerLength}s)'
+                          : 'DISCONNECTED',
+                      style: Theme.of(context)
+                          .textTheme
+                          .title
+                          .copyWith(color: Colors.white),
+                    ),
+                    shadowButtonControl(buildSettingButton()),
+                  ],
+                ),
+                Container(
+                  // color: Colors.white,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      padButtonControl(
+                          shadowButtonControl(buildCameraSwitcher())),
+                      padButtonControl(
+                          shadowButtonControl(buildCaptureButton())),
+                      padButtonControl(shadowButtonControl(buildTimer())),
+                    ],
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget buildCountdownText() {
+      if (countdownLeft == null) {
+        return Offstage();
+      }
+
+      return Positioned.fill(
+        child: Center(
+          child: shadowButtonControl(
+            Text(countdownLeft == null ? '' : countdownLeft.toString(),
+                style: Theme.of(context).textTheme.display4),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: <Widget>[
           Center(child: buildCamPreview()),
-          Positioned.fill(
-            top: 0,
-            child: SafeArea(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: <Widget>[
-                        shadowButtonControl(buildConnectButton()),
-                        Text(
-                          isConnected
-                              ? 'CAM ${pacameraProvider.deviceName}'
-                              : 'DISCONNECTED',
-                          style: Theme.of(context)
-                              .textTheme
-                              .title
-                              .copyWith(color: Colors.white),
-                        ),
-                        shadowButtonControl(buildSettingButton()),
-                      ],
-                    ),
-                    Container(
-                      // color: Colors.white,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          padButtonControl(
-                              shadowButtonControl(buildCameraSwitcher())),
-                          padButtonControl(
-                              shadowButtonControl(buildCaptureButton())),
-                          padButtonControl(shadowButtonControl(buildTimer())),
-                        ],
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-          ),
+          buildUI(),
+          buildCountdownText(),
         ],
       ),
     );
