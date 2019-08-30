@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:panflutter/components/pages/camera_page.dart';
 import 'package:provider/provider.dart';
-
-import 'camera_page.dart';
 
 void main() => runApp(MyApp());
 

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:camera/camera.dart';
+import 'package:panflutter/components/pages/setting_dialog.dart';
 import 'package:panflutter/main.dart';
 import 'package:panflutter/models/paca_protocol.dart';
-import 'package:panflutter/setting_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:web_socket_channel/io.dart';
