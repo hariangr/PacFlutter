@@ -8,13 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:web_socket_channel/io.dart';
 import 'dart:convert';
-import 'package:web_socket_channel/status.dart' as status;
+// import 'package:web_socket_channel/status.dart' as status;
 
 class CameraPage extends StatefulWidget {
-  CameraPage({Key key, this.title}) : super(key: key);
-
-  final String title;
-
   @override
   _CameraPageState createState() => _CameraPageState();
 }
@@ -30,17 +26,33 @@ class _CameraPageState extends State<CameraPage> {
   PacameraProvider pacameraProvider;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() async {
+    super.didChangeDependencies();
 
-    loadCameras();
+    pacameraProvider = Provider.of<PacameraProvider>(context);
+    await loadCameras();
+    loadCameraController();
+    initWebsocket();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    pacameraProvider = Provider.of<PacameraProvider>(context);
-    initWebsocket();
+  void onWebsocketData(data) {
+    print(data);
+    var res = PacaProtocolModel.fromJson(json.decode(data));
+
+    switch (res.event) {
+      case "cheese":
+        capturePicture();
+        break;
+      case "ping":
+        setState(() {
+          pingOk = true;
+          isConnected = true;
+          print('X yeap trues');
+        });
+        break;
+      default:
+        print(data);
+    }
   }
 
   void initWebsocket() {
@@ -48,25 +60,7 @@ class _CameraPageState extends State<CameraPage> {
     pingOk = true;
     isConnected = true;
     schedulePing();
-    channel.stream.listen((data) {
-      print(data);
-      var res = PacaProtocolModel.fromJson(json.decode(data));
-
-      switch (res.event) {
-        case "cheese":
-          onShutterPressed();
-          break;
-        case "ping":
-          setState(() {
-            pingOk = true;
-            isConnected = true;
-            print('X yeap trues');
-          });
-          break;
-        default:
-          print(data);
-      }
-    });
+    channel.stream.listen(onWebsocketData);
   }
 
   void schedulePing() {
@@ -95,7 +89,7 @@ class _CameraPageState extends State<CameraPage> {
     });
   }
 
-  void onShutterPressed() async {
+  void capturePicture() async {
     print('menyimpan');
 
     String date = DateTime.now().millisecondsSinceEpoch.toString();
@@ -125,7 +119,7 @@ class _CameraPageState extends State<CameraPage> {
 
   Future<void> loadCameras() async {
     cameras = await availableCameras();
-    loadCameraController();
+    // loadCameraController();
   }
 
   void loadCameraController() {
@@ -133,7 +127,7 @@ class _CameraPageState extends State<CameraPage> {
     var camIndex = curCamera % cameras.length;
 
     controller =
-        CameraController(cameras[camIndex], ResolutionPreset.ultraHigh);
+        CameraController(cameras[camIndex], pacameraProvider.cameraResolution);
     controller.initialize().then((_) {
       if (!mounted) {
         return;
@@ -144,7 +138,7 @@ class _CameraPageState extends State<CameraPage> {
 
   @override
   Widget build(BuildContext context) {
-    buildCamPreview() {
+    Widget buildCamPreview() {
       if (controller == null || controller.value == null) {
         return Container(child: Center(child: CircularProgressIndicator()));
       }
@@ -155,46 +149,47 @@ class _CameraPageState extends State<CameraPage> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isConnected ? 'Cam ${pacameraProvider.deviceName}' : 'Disconnected'),
-        actions: <Widget>[
-          IconButton(
-            icon: Icon(Icons.switch_camera),
-            onPressed: () {
-              curCamera = curCamera + 1;
-              loadCameraController();
-            },
-          ),
-          IconButton(
-            icon: Icon(isConnected ? Icons.not_interested : Icons.check),
-            onPressed: () {
-              if (isConnected) {
-                channel.sink.close();
-                setState(() {
-                  pingOk = false;
-                  isConnected = false;
-                });
-              } else {
-                initWebsocket();
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: isConnected
-                ? null
-                : () {
-                    showDialog(
-                        context: context,
-                        builder: (context) => SettingDialog(currentDeviceName: pacameraProvider.deviceName));
-                  },
-          )
-        ],
-      ),
-      body: Center(child: buildCamPreview()),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton(
+    Widget buildSettingButton() {
+      return IconButton(
+        icon: Icon(Icons.settings),
+        onPressed: isConnected
+            ? null
+            : () {
+                showDialog(
+                    context: context, builder: (context) => SettingDialog());
+              },
+      );
+    }
+
+    Widget buildConnectButton() {
+      return IconButton(
+        icon: Icon(isConnected ? Icons.not_interested : Icons.check),
+        onPressed: () {
+          if (isConnected) {
+            channel.sink.close();
+            setState(() {
+              pingOk = false;
+              isConnected = false;
+            });
+          } else {
+            initWebsocket();
+          }
+        },
+      );
+    }
+
+    Widget buildCameraSwitcher() {
+      return IconButton(
+        icon: Icon(Icons.switch_camera),
+        onPressed: () {
+          curCamera = curCamera + 1;
+          loadCameraController();
+        },
+      );
+    }
+
+    Widget buildFAB() {
+      return FloatingActionButton(
         onPressed: () {
           channel.sink.add(
               json.encode({"event": "new", "data": DateTime.now().toString()}));
@@ -204,7 +199,23 @@ class _CameraPageState extends State<CameraPage> {
         },
         tooltip: 'Increment',
         child: Icon(Icons.camera),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isConnected
+            ? 'Cam ${pacameraProvider.deviceName}'
+            : 'Disconnected'),
+        actions: <Widget>[
+          buildCameraSwitcher(),
+          buildConnectButton(),
+          buildSettingButton(),
+        ],
       ),
+      body: Center(child: buildCamPreview()),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: buildFAB(),
     );
   }
 }

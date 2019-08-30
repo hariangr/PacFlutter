@@ -1,3 +1,4 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:panflutter/components/pages/camera_page.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +20,13 @@ class PacameraProvider extends ChangeNotifier {
     _deviceName = name;
     notifyListeners();
   }
+
+  ResolutionPreset _camRes = ResolutionPreset.medium;
+  ResolutionPreset get cameraResolution => _camRes;
+  void setCameraResolution(ResolutionPreset res) {
+    _camRes = res;
+    notifyListeners();
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -31,7 +39,7 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
-        home: CameraPage(title: 'Flutter Demo Home Page'),
+        home: CameraPage(),
       ),
     );
   }

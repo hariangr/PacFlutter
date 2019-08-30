@@ -1,33 +1,31 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:panflutter/main.dart';
 import 'package:provider/provider.dart';
 
 class SettingDialog extends StatefulWidget {
-  final String currentDeviceName;
-
-  SettingDialog({@required this.currentDeviceName});
-
   @override
-  _SettingDialogState createState() => _SettingDialogState(deviceName: currentDeviceName);
+  _SettingDialogState createState() => _SettingDialogState();
 }
 
 class _SettingDialogState extends State<SettingDialog> {
   String ipServ;
   String deviceName;
+  ResolutionPreset resPreset;
   var formKey = GlobalKey<FormState>();
+  PacameraProvider pacaProvider;
 
-  initState() {
-    super.initState();
-    deviceName = widget.currentDeviceName;
-    print(deviceName);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    pacaProvider = Provider.of<PacameraProvider>(context);
+    deviceName = pacaProvider.deviceName;
+    resPreset = pacaProvider.cameraResolution;
+    print(resPreset.toString());
   }
-
-  _SettingDialogState({@required this.deviceName});
 
   @override
   Widget build(BuildContext context) {
-    final pacaProvider = Provider.of<PacameraProvider>(context);
-
     return Dialog(
       child: Padding(
         padding: EdgeInsets.all(16),
@@ -58,6 +56,20 @@ class _SettingDialogState extends State<SettingDialog> {
                           child: Text(i.toString()),
                         )),
               ),
+              DropdownButtonFormField(
+                value: resPreset,
+                decoration: InputDecoration(labelText: 'Resolusi kamera'),
+                onChanged: (s) {
+                  setState(() {
+                    resPreset = s;
+                  });
+                },
+                onSaved: (s) => resPreset = s,
+                items: ResolutionPreset.values
+                    .map((f) =>
+                        DropdownMenuItem(value: f, child: Text(f.toString())))
+                    .toList(),
+              ),
               ButtonBar(
                 children: <Widget>[
                   RaisedButton(
@@ -74,6 +86,7 @@ class _SettingDialogState extends State<SettingDialog> {
 
                       pacaProvider.setIpAddressServer(ipServ);
                       pacaProvider.setDeviceName(deviceName);
+                      pacaProvider.setCameraResolution(resPreset);
 
                       Navigator.pop(context);
                     },
