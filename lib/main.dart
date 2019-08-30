@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +13,7 @@ void main() => runApp(MyApp());
 
 class PacameraProvider extends ChangeNotifier {
   String _ipAddressServer = "ws://192.168.1.4:3000";
-  String _deviceName = "cam1";
+  String _deviceName = "0";
 
   String get ipAddressServer => _ipAddressServer;
   void setIpAddressServer(String ip) {
@@ -192,7 +191,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isConnected ? 'Connected' : 'Disconnected'),
+        title: Text(isConnected ? 'Cam ${pacameraProvider.deviceName}' : 'Disconnected'),
         actions: <Widget>[
           IconButton(
             icon: Icon(Icons.switch_camera),
@@ -222,7 +221,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 : () {
                     showDialog(
                         context: context,
-                        builder: (context) => SettingDialog());
+                        builder: (context) => SettingDialog(currentDeviceName: pacameraProvider.deviceName));
                   },
           )
         ],
@@ -245,14 +244,26 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class SettingDialog extends StatefulWidget {
+  final String currentDeviceName;
+
+  SettingDialog({@required this.currentDeviceName});
+
   @override
-  _SettingDialogState createState() => _SettingDialogState();
+  _SettingDialogState createState() => _SettingDialogState(deviceName: currentDeviceName);
 }
 
 class _SettingDialogState extends State<SettingDialog> {
   String ipServ;
   String deviceName;
   var formKey = GlobalKey<FormState>();
+
+  initState() {
+    super.initState();
+    deviceName = widget.currentDeviceName;
+    print(deviceName);
+  }
+
+  _SettingDialogState({@required this.deviceName});
 
   @override
   Widget build(BuildContext context) {
@@ -272,10 +283,21 @@ class _SettingDialogState extends State<SettingDialog> {
                 initialValue: pacaProvider.ipAddressServer,
                 onSaved: (s) => ipServ = s,
               ),
-              TextFormField(
-                decoration: InputDecoration(labelText: 'Name for this camera'),
-                initialValue: pacaProvider.deviceName,
+              DropdownButtonFormField(
+                value: deviceName,
+                decoration: InputDecoration(labelText: 'Nomer kamera'),
+                onChanged: (s) {
+                  setState(() {
+                    deviceName = s;
+                  });
+                },
                 onSaved: (s) => deviceName = s,
+                items: List.generate(
+                    100,
+                    (i) => DropdownMenuItem(
+                          value: i.toString(),
+                          child: Text(i.toString()),
+                        )),
               ),
               ButtonBar(
                 children: <Widget>[
