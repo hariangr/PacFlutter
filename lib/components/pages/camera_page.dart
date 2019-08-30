@@ -149,11 +149,32 @@ class _CameraPageState extends State<CameraPage> {
       );
     }
 
+    Widget buildControl({
+      Widget child,
+      double iconSize: 30,
+      Color foregroundColor: Colors.transparent,
+      Function() onTap,
+    }) {
+      return ClipOval(
+        child: Material(
+          color: foregroundColor,
+          child: IconButton(
+            icon: child,
+            splashColor: Colors.blue,
+            color: Colors.white,
+            iconSize: iconSize,
+            onPressed: onTap,
+          ),
+        ),
+      );
+    }
+
     Widget buildSettingButton() {
-      return IconButton(
-        icon: Icon(Icons.settings),
-        onPressed: isConnected
-            ? null
+      return buildControl(
+        child: Icon(Icons.settings,
+            color: isConnected ? Colors.grey : Colors.white),
+        onTap: isConnected
+            ? () {}
             : () {
                 showDialog(
                     context: context, builder: (context) => SettingDialog());
@@ -162,9 +183,9 @@ class _CameraPageState extends State<CameraPage> {
     }
 
     Widget buildConnectButton() {
-      return IconButton(
-        icon: Icon(isConnected ? Icons.not_interested : Icons.check),
-        onPressed: () {
+      return buildControl(
+        child: Icon(isConnected ? Icons.not_interested : Icons.check),
+        onTap: () {
           if (isConnected) {
             channel.sink.close();
             setState(() {
@@ -179,43 +200,108 @@ class _CameraPageState extends State<CameraPage> {
     }
 
     Widget buildCameraSwitcher() {
-      return IconButton(
-        icon: Icon(Icons.switch_camera),
-        onPressed: () {
+      return buildControl(
+        child: Icon(Icons.switch_camera),
+        onTap: () {
           curCamera = curCamera + 1;
           loadCameraController();
         },
       );
     }
 
-    Widget buildFAB() {
-      return FloatingActionButton(
-        onPressed: () {
+    Widget buildCaptureButton() {
+      return buildControl(
+        child: Icon(Icons.camera),
+        iconSize: 50,
+        foregroundColor: Theme.of(context).primaryColor.withOpacity(0.70),
+        onTap: () {
           channel.sink.add(
               json.encode({"event": "new", "data": DateTime.now().toString()}));
 
           channel.sink.add(json
               .encode({"event": "cheese", "data": DateTime.now().toString()}));
         },
-        tooltip: 'Increment',
-        child: Icon(Icons.camera),
+      );
+    }
+
+    Widget buildTimer() {
+      return buildControl(
+        child: Icon(Icons.timer),
+        onTap: () {},
+      );
+    }
+
+    Widget shadowButtonControl(Widget child) {
+      return Container(
+        child: child,
+        decoration:
+            BoxDecoration(borderRadius: BorderRadius.circular(50), boxShadow: [
+          BoxShadow(
+            color: Colors.black38,
+            blurRadius: 25,
+            spreadRadius: 10,
+          )
+        ]),
+      );
+    }
+
+    Widget padButtonControl(Widget child) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: child,
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isConnected
-            ? 'Cam ${pacameraProvider.deviceName}'
-            : 'Disconnected'),
-        actions: <Widget>[
-          buildCameraSwitcher(),
-          buildConnectButton(),
-          buildSettingButton(),
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: <Widget>[
+          Center(child: buildCamPreview()),
+          Positioned.fill(
+            top: 0,
+            child: SafeArea(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: <Widget>[
+                        shadowButtonControl(buildConnectButton()),
+                        Text(
+                          isConnected
+                              ? 'CAM ${pacameraProvider.deviceName}'
+                              : 'DISCONNECTED',
+                          style: Theme.of(context)
+                              .textTheme
+                              .title
+                              .copyWith(color: Colors.white),
+                        ),
+                        shadowButtonControl(buildSettingButton()),
+                      ],
+                    ),
+                    Container(
+                      // color: Colors.white,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          padButtonControl(
+                              shadowButtonControl(buildCameraSwitcher())),
+                          padButtonControl(
+                              shadowButtonControl(buildCaptureButton())),
+                          padButtonControl(shadowButtonControl(buildTimer())),
+                        ],
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
-      body: Center(child: buildCamPreview()),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: buildFAB(),
     );
   }
 }
