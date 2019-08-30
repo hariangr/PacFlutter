@@ -241,11 +241,13 @@ class _CameraPageState extends State<CameraPage> {
         child: Icon(Icons.camera),
         iconSize: 50,
         foregroundColor: Theme.of(context).primaryColor.withOpacity(0.70),
-        onTap: () {
-          channel.sink.add(
-              json.encode({"event": "new", "data": DateTime.now().toString()}));
-          startCountdown();
-        },
+        onTap: countdownLeft == null
+            ? () {
+                channel.sink.add(json.encode(
+                    {"event": "new", "data": DateTime.now().toString()}));
+                startCountdown();
+              }
+            : null,
       );
     }
 
