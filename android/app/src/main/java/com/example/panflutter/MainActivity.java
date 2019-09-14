@@ -1,4 +1,4 @@
-package com.example.panflutter;
+package com.harianugrah.pacamera;
 
 import android.os.Bundle;
 import io.flutter.app.FlutterActivity;
