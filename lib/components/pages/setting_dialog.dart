@@ -34,6 +34,7 @@ class _SettingDialogState extends State<SettingDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
+              Text("360 Photobooth by Hari Anugrah"),
               TextFormField(
                 decoration:
                     InputDecoration(labelText: 'IP Address Pacamera Server'),
