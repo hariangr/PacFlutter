@@ -11,7 +11,7 @@ description: A new Flutter project.
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 1.0.3+4
+version: 1.0.5+6
 
 environment:
   sdk: ">=2.1.0 <3.0.0"
@@ -33,6 +33,7 @@ dependencies:
 
 dev_dependencies:
   # For automatic generated JSON serializer (See dependecies)
+  flutter_launcher_icons: "^0.7.3"
   build_runner: ^1.0.0
   json_serializable: ^2.0.0
   flutter_test:
@@ -80,3 +81,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+
+flutter_icons:
+  android: "launcher_icon" 
+  ios: true
+  image_path: "assets/launcher/PlayStoreListing.png"
+  # flutter pub pub run flutter_launcher_icons:main
